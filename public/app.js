@@ -22,6 +22,13 @@ learnjs.applyObject = function (obj, elem) {
   }
 }
 
+learnjs.flashElement = function (elem, content) {
+  elem.fadeOut('fast', function () {
+    elem.html(content);
+    elem.fadeIn();
+  });
+}
+
 /**
  * @param {String} data Problem number string.
  */
@@ -39,9 +46,9 @@ learnjs.problemView = function (data) {
 
   function checkAnswerClick() {
     if (checkAnswer()) {
-      resultFlash.text('Correct!');
+      learnjs.flashElement(resultFlash, 'Correct!');
     } else {
-      resultFlash.text('Incorrect!');
+      learnjs.flashElement(resultFlash, 'Incorrect!');
     }
     return false;
   }
