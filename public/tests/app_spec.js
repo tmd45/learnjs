@@ -47,17 +47,35 @@ describe('LearnJS', function () {
     });
 
     describe('answer section', function () {
-      it('can check a correct answer by hitting a button', function () {
-        // <textarea> の値を設定してから、ボタンのクリックイベントをトリガーする
-        view.find('.answer').val('true');
-        view.find('.check-btn').click();
-        expect(view.find('.result').text()).toEqual('Correct!');
+      var resultFlash;
+      beforeEach(function () {
+        spyOn(learnjs, 'flashElement');
+        resultFlash = view.find('.result');
+      });
+
+      describe('when the answer is correct', function () {
+        beforeEach(function () {
+          view.find('.answer').val('true');
+          view.find('.check-btn').click();
+        });
+
+        it('flashes the result', function () {
+          var flashArgs = learnjs.flashElement.calls.argsFor(0);
+          expect(flashArgs[0]).toEqual(resultFlash);
+          expect(flashArgs[1].find('span').text()).toEqual('Correct!');
+        });
+
+        it('shows a link to the next problem', function () {
+          var link = learnjs.flashElement.calls.argsFor(0)[1].find('a');
+          expect(link.text()).toEqual('Next Problem');
+          expect(link.attr('href')).toEqual('#problem-2');
+        });
       });
 
       it('rejects an incorrect answer', function () {
         view.find('.answer').val('false');
         view.find('.check-btn').click();
-        expect(view.find('.result').text()).toEqual('Incorrect!');
+        expect(learnjs.flashElement).toHaveBeenCalledWith(resultFlash, 'Incorrect!');
       });
     });
   });
