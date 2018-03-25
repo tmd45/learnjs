@@ -1,4 +1,13 @@
 describe('LearnJS', function () {
+  var fakeWorker;
+  beforeEach(function () {
+    fakeWorker = {
+      postMessage: function (msg) { fakeWorker.onmessage({ data: eval(msg) }) }
+    };
+    spyOn(window, 'Worker').and.returnValue(fakeWorker);
+  })
+
+
   it('invokes the router when loaded', function () {
     spyOn(learnjs, 'showView');
     learnjs.appOnReady();
@@ -57,6 +66,10 @@ describe('LearnJS', function () {
         beforeEach(function () {
           view.find('.answer').val('true');
           view.find('.check-btn').click();
+        });
+
+        it('uses a worker to check the answer safely', function () {
+          expect(window.Worker).toHaveBeenCalledWith('worker.js');
         });
 
         it('flashes the result', function () {

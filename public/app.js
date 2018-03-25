@@ -64,17 +64,27 @@ learnjs.problemView = function (data) {
   }
 
   function checkAnswer() {
+    var def = $.Deferred();
     var answer = view.find('.answer').val();
     var test = problemData.code.replace('__', answer) + '; problem();';
-    return eval(test); // known bad.
+    var worker = new Worker('worker.js');
+    worker.onmessage = function (e) {
+      if (e.data) {
+        def.resolve(e.data);
+      } else {
+        def.reject();
+      }
+    }
+    worker.postMessage(test);
+    return def;
   }
 
   function checkAnswerClick() {
-    if (checkAnswer()) {
+    checkAnswer().done(function () {
       learnjs.flashElement(resultFlash, learnjs.buildCorrectFlash(problemNumber));
-    } else {
+    }).fail(function () {
       learnjs.flashElement(resultFlash, 'Incorrect!');
-    }
+    });
     return false;
   }
 
