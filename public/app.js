@@ -16,6 +16,10 @@ learnjs.problems = [
   }
 ];
 
+learnjs.triggerEvent = function (name, args) {
+  $('.view-container>*').trigger(name, args);
+}
+
 learnjs.template = function (name) {
   return $('.templates .' + name).clone();
 }
@@ -106,10 +110,6 @@ learnjs.problemView = function (data) {
 
 learnjs.landingView = function () {
   return learnjs.template('landing-view');
-}
-
-learnjs.triggerEvent = function (name, args) {
-  $('.view-container>*').trigger(name, args);
 }
 
 learnjs.showView = function (hash) {
