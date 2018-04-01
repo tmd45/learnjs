@@ -122,3 +122,10 @@ learnjs.appOnReady = function () {
   };
   learnjs.showView(window.location.hash);
 }
+
+/**
+ * Google Sign-In
+ */
+function googleSignIn() {
+  console.log(arguments);
+}
