@@ -63,6 +63,112 @@ describe('LearnJS', function () {
   });
 
   /**
+   * AWS DynamoDB
+   */
+  describe('with DynamoDB', function () {
+    var dbspy, req, identityObj;
+    beforeEach(function () {
+      dbspy = jasmine.createSpyObj('db', ['get', 'put']);
+      spyOn(AWS.DynamoDB, 'DocumentClient').and.returnValue(dbspy);
+      spyOn(learnjs, 'sendDbRequest');
+      identityObj = { id: 'COGNITO_ID' };
+      learnjs.identity.resolve(identityObj);
+    });
+
+    describe('saveAnswer', function () {
+      beforeEach(function () {
+        dbspy.put.and.returnValue('request');
+      });
+
+      it('writes the item to the database', function () {
+        learnjs.saveAnswer(1, {});
+        expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function));
+        expect(dbspy.put).toHaveBeenCalledWith({
+          TableName: 'learnjs',
+          Item: {
+            userId: 'COGNITO_ID',
+            problemId: 1,
+            answer: {}
+          }
+        });
+      });
+
+      it('resubmits the request on retry', function () {
+        learnjs.saveAnswer(1, { answer: 'false' });
+        spyOn(learnjs, 'saveAnswer').and.returnValue('promise');
+        expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise');
+        expect(learnjs.saveAnswer).toHaveBeenCalledWith(1, { answer: 'false' });
+      });
+    });
+
+    describe('fetchAnswer', function () {
+      beforeEach(function () {
+        dbspy.get.and.returnValue('request');
+      });
+
+      it('reads the item from the database', function (done) {
+        learnjs.sendDbRequest.and.returnValue(new $.Deferred().resolve('item'));
+        learnjs.fetchAnswer(1).then(function (item) {
+          expect(item).toEqual('item');
+          expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function));
+          expect(dbspy.get).toHaveBeenCalledWith({
+            TableName: 'learnjs',
+            Key: {
+              userId: 'COGNITO_ID',
+              problemId: 1
+            }
+          });
+          done();
+        });
+      });
+
+      it('resubmits the requeston retry', function () {
+        learnjs.fetchAnswer(1);
+        spyOn(learnjs, 'fetchAnswer').and.returnValue('promise');
+        expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise');
+        expect(learnjs.fetchAnswer).toHaveBeenCalledWith(1);
+      });
+    });
+  });
+
+  describe('sendDbRequest', function () {
+    var request, requestHandlers, promise, retrySpy;
+    beforeEach(function () {
+      requestHandlers = {};
+      request = jasmine.createSpyObj('request', ['send', 'on']);
+      request.on.and.callFake(function (eventName, callback) {
+        requestHandlers[eventName] = callback;
+      });
+      retrySpy = jasmine.createSpy('retry');
+      promise = learnjs.sendDbRequest(request, retrySpy);
+    });
+
+    it('resolves the returned promise on success', function (done) {
+      requestHandlers.success({ data: 'data' });
+      expect(request.send).toHaveBeenCalled();
+      promise.then(function (data) {
+        expect(data).toEqual('data');
+        done();
+      }, fail);
+    });
+
+    it('rejects the returned promise on error', function (done) {
+      learnjs.identity.resolve({ refresh: function () { return new $.Deferred().reject() } });
+      requestHandlers.error({ code: 'SomeError' });
+      promise.fail(function (resp) {
+        expect(resp).toEqual({ code: 'SomeError' });
+        done();
+      });
+    });
+
+    it('refreshes the credentials and retries when the credentials are expored', function () {
+      learnjs.identity.resolve({ refresh: function () { return new $.Deferred().resolve() } });
+      requestHandlers.error({ code: 'CredentialsError' });
+      expect(retrySpy).toHaveBeenCalled();
+    });
+  });
+
+  /**
    * AWS Cognito; Refresh Credentials
    */
   describe('awsRefresh', function () {
@@ -191,9 +297,29 @@ describe('LearnJS', function () {
     * Problem View
     */
   describe('problem view', function () {
-    var view;
+    var view, fetchAnswerDef;
     beforeEach(function () {
+      fetchAnswerDef = new $.Deferred();
+      spyOn(learnjs, 'fetchAnswer').and.returnValue(fetchAnswerDef);
       view = learnjs.problemView('1');
+    });
+
+    it('loads the previous answer, if there is one', function (done) {
+      fetchAnswerDef.resolve({ Item: { answer: 'true' } }).then(function () {
+        expect(view.find('.answer').val()).toEqual('true');
+        done();
+      });
+    });
+
+    it('keeps the answer blank until the promise is resolved', function () {
+      expect(view.find('.answer').val()).toEqual('');
+    });
+
+    it('does nothing if the question has not been answered yet', function (done) {
+      fetchAnswerDef.resolve({}).then(function () {
+        expect(view.find('.answer').val()).toEqual('');
+        done();
+      });
     });
 
     it('has a title that includes the problem number', function () {
