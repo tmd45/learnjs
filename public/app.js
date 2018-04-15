@@ -59,6 +59,22 @@ learnjs.saveAnswer = function (problemId, answer) {
   });
 }
 
+learnjs.fetchAnswer = function (problemId) {
+  return learnjs.identity.then(function (identity) {
+    var db = new AWS.DynamoDB.DocumentClient();
+    var item = {
+      TableName: 'learnjs',
+      Key: {
+        userId: identity.id,
+        problemId: problemId
+      }
+    };
+    return learnjs.sendDbRequest(db.get(item), function () {
+      return learnjs.fetchAnswer(problemId);
+    })
+  });
+}
+
 learnjs.template = function (name) {
   return $('.templates .' + name).clone();
 }
@@ -142,6 +158,12 @@ learnjs.problemView = function (data) {
     });
     return false;
   }
+
+  learnjs.fetchAnswer(problemNumber).then(function (data) {
+    if (data.Item) {
+      answer.val(data.Item.answer);
+    }
+  });
 
   view.find('.check-btn').click(checkAnswerClick);
   view.find('.title').text('Problem #' + problemNumber);
